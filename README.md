@@ -1,0 +1,2 @@
+# JsonschemaEditor
+用于可视化生成符合OpenAI Jsonschema模式的json字符串js库
