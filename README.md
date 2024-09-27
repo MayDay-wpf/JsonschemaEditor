@@ -27,6 +27,7 @@
               }
           });
           jsonschemaeditor.getSchema();//编辑后获取生成的jsonschema字符串
+          jsonschemaeditor.setSchema(newSchemaString);//jsonschema字符串写回编辑器
       </script>
   </body>
   </html>
