@@ -133,7 +133,7 @@ const JsonSchemaEditor = (function () {
             type: "object",
             properties: {},
             required: [],
-            additionalProperties: false  // 直接设置为 false
+            additionalProperties: false
         };
 
         element.find('> .field-container').each(function () {
@@ -156,14 +156,13 @@ const JsonSchemaEditor = (function () {
                 if (fieldType === 'object') {
                     const nestedSchema = generateSchema($(this).find('> .nested-fields'));
                     schema.properties[fieldName].properties = nestedSchema.properties;
-                    schema.properties[fieldName].additionalProperties = false;  // 为嵌套对象也设置 additionalProperties: false
+                    schema.properties[fieldName].additionalProperties = false;
                     if (nestedSchema.required && nestedSchema.required.length > 0) {
                         schema.properties[fieldName].required = nestedSchema.required;
                     }
                 } else if (fieldType === 'array') {
-                    schema.properties[fieldName].items = {
-                        type: $(this).find('> .nested-fields > .field-container > .form-row .field-type select').val() || 'string'
-                    };
+                    const itemsSchema = generateSchema($(this).find('> .nested-fields'));
+                    schema.properties[fieldName].items = itemsSchema.properties.items;
                 } else if (fieldType === 'enum') {
                     schema.properties[fieldName].enum = fieldEnum.split(',').map(item => item.trim());
                 }
@@ -176,6 +175,7 @@ const JsonSchemaEditor = (function () {
 
         return schema;
     }
+
 
     function renderSchema(schema, container, parentType = 'root') {
         for (const [fieldName, fieldData] of Object.entries(schema.properties)) {
@@ -200,7 +200,7 @@ const JsonSchemaEditor = (function () {
                 fieldRow.find('.field-enum').val(fieldData.enum.join(', '));
             }
 
-            if (fieldData.type === 'object') {
+            if (fieldData.type === 'object' || fieldData.type === 'array') {
                 fieldRow.find('.add-nested-field').show();
             }
 
@@ -212,9 +212,11 @@ const JsonSchemaEditor = (function () {
                     required: fieldData.required
                 }, fieldRow.find('.nested-fields'), 'object');
             } else if (fieldData.type === 'array' && fieldData.items) {
-                const itemsRow = $(createFieldRow('array', true));
-                itemsRow.find('.field-type select').val(fieldData.items.type);
-                fieldRow.find('.nested-fields').append(itemsRow);
+                const itemsSchema = {
+                    properties: {items: fieldData.items},
+                    required: fieldData.required
+                };
+                renderSchema(itemsSchema, fieldRow.find('.nested-fields'), 'array');
             }
         }
     }
