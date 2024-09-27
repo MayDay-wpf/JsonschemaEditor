@@ -176,8 +176,12 @@ const JsonSchemaEditor = (function () {
         return schema;
     }
 
-
     function renderSchema(schema, container, parentType = 'root') {
+        if (!schema || !schema.properties) {
+            console.error('Invalid schema structure');
+            return;
+        }
+
         for (const [fieldName, fieldData] of Object.entries(schema.properties)) {
             const isArrayItem = parentType === 'array' && fieldName === 'items';
             const fieldRow = $(createFieldRow(parentType, isArrayItem));
@@ -213,14 +217,13 @@ const JsonSchemaEditor = (function () {
                 }, fieldRow.find('.nested-fields'), 'object');
             } else if (fieldData.type === 'array' && fieldData.items) {
                 const itemsSchema = {
-                    properties: {items: fieldData.items},
+                    properties: { items: fieldData.items },
                     required: fieldData.required
                 };
                 renderSchema(itemsSchema, fieldRow.find('.nested-fields'), 'array');
             }
         }
     }
-
 
     function initializeEditor(editorContainer) {
         editorContainer.on('click', '.remove-field', function () {
@@ -253,7 +256,7 @@ const JsonSchemaEditor = (function () {
             } else if ($(this).val() === 'array') {
                 enumField.hide();
                 descriptionField.show();
-                addNestedButton.hide();
+                addNestedButton.show();
                 nestedFields.empty();
                 const itemsRow = $(createFieldRow('array', true));
                 nestedFields.append(itemsRow);
@@ -269,16 +272,7 @@ const JsonSchemaEditor = (function () {
     return {
         create: function (container, options) {
             const existingSchema = options.schema || '';
-            const onSave = options.onSave || function () {
-            };
-
-            // 添加样式
-            if (!document.getElementById('json-schema-editor-styles')) {
-                const styleElement = document.createElement('style');
-                styleElement.id = 'json-schema-editor-styles';
-                styleElement.textContent = styles;
-                document.head.appendChild(styleElement);
-            }
+            const onSave = options.onSave || function () {};
 
             const editorContent = $(`
                 <div class="json-schema-editor">
@@ -291,13 +285,29 @@ const JsonSchemaEditor = (function () {
             container.empty().append(editorContent);
             const editorContainer = container.find('#schema-editor');
 
-            if (existingSchema) {
-                try {
-                    const schema = JSON.parse(existingSchema);
-                    renderSchema(schema, editorContainer, 'root');
-                } catch (e) {
-                    console.error('Invalid JSON:', e);
+            const editor = {
+                getSchema: function () {
+                    const schema = generateSchema(editorContainer);
+                    return JSON.stringify(schema, null, 2);
+                },
+                setSchema: function (schemaString) {
+                    try {
+                        const schema = JSON.parse(schemaString);
+                        if (typeof schema !== 'object' || schema === null || !schema.properties) {
+                            throw new Error('Invalid schema structure');
+                        }
+                        editorContainer.empty();
+                        renderSchema(schema, editorContainer, 'root');
+                        return true;
+                    } catch (e) {
+                        console.error('Error setting schema:', e);
+                        return false;
+                    }
                 }
+            };
+
+            if (existingSchema) {
+                editor.setSchema(existingSchema);
             }
 
             initializeEditor(editorContainer);
@@ -311,21 +321,7 @@ const JsonSchemaEditor = (function () {
                 onSave(JSON.stringify(schema, null, 2));
             });
 
-            return {
-                getSchema: function () {
-                    const schema = generateSchema(editorContainer);
-                    return JSON.stringify(schema, null, 2);
-                },
-                setSchema: function (schemaString) {
-                    try {
-                        const schema = JSON.parse(schemaString);
-                        editorContainer.empty();
-                        renderSchema(schema, editorContainer, 'root');
-                    } catch (e) {
-                        console.error('Invalid JSON:', e);
-                    }
-                }
-            };
+            return editor;
         }
     };
 })();
